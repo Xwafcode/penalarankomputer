@@ -1,4 +1,4 @@
-# CBR Putusan Pencurian — Pengadilan Negeri Malang
+# CBR Putusan Pencurian Pengadilan Negeri Malang
 
 Sistem **Case-Based Reasoning (CBR)** untuk analisis putusan pengadilan tindak pidana pencurian (Pasal 362 vs Pasal 363 KUHP) dari Pengadilan Negeri Malang.
 
