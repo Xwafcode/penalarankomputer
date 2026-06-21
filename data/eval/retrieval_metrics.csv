@@ -1,9 +1,5 @@
 model,label,accuracy,precision,recall,f1_score
 TF-IDF + SVM,label_pasal,0.9167,0.9286,0.9167,0.9161
-TF-IDF + NB,label_pasal,0.8333,0.8333,0.8333,0.8333
+TF-IDF + NaiveBayes,label_pasal,0.8333,0.8333,0.8333,0.8333
 TF-IDF + Cosine (k=5),label_pasal,0.8333,0.8333,0.8333,0.8333
-TF-IDF + SVM,label_vonis,0.625,0.3906,0.625,0.4808
-TF-IDF + NB,label_vonis,0.625,0.3906,0.625,0.4808
-TF-IDF + Cosine (k=5),label_vonis,0.625,0.3906,0.625,0.4808
 IndoBERT + Cosine (k=5),label_pasal,0.9167,0.9286,0.9167,0.9161
-IndoBERT + Cosine (k=5),label_vonis,0.625,0.3906,0.625,0.4808
