@@ -133,8 +133,3 @@ Fitur antarmuka web:
 1. **TF-IDF + SVM** mencapai F1 tertinggi (0.9161) untuk klasifikasi pasal karena teks hukum mengandung keyword spesifik (misal: "malam hari", "merusak kunci" untuk Pasal 363)
 2. **Weighted Vote** (sim^5) lebih akurat daripada Majority Vote karena kasus paling mirip langsung mendominasi prediksi
 3. IndoBERT memerlukan fine-tuning untuk domain hukum Indonesia agar performanya optimal
-
-## Kredit
-
-Proyek Praktikum Penalaran Komputer — Fakultas Teknik Informatika, Universitas Muhammadiyah Malang.
-Semester Genap Tahun Akademik 2025/2026.
