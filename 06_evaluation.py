@@ -84,11 +84,6 @@ def main():
             pred_metrics.append(m)
             print_report(gt_pasal, y_pasal, model_name, "label_pasal")
 
-        m = compute_metrics(gt_vonis, y_vonis, model_name, "label_vonis")
-        if m:
-            pred_metrics.append(m)
-            print_report(gt_vonis, y_vonis, model_name, "label_vonis")
-
     df_pred_metrics = pd.DataFrame(pred_metrics)
     pred_metrics_path = EVAL_DIR / "prediction_metrics.csv"
     df_pred_metrics.to_csv(pred_metrics_path, index=False)
@@ -98,49 +93,47 @@ def main():
     print("="*70)
     print(df_pred_metrics.to_string(index=False))
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-    fig.suptitle("CBR System Evaluation — Retrieval vs Prediction", fontsize=14, fontweight="bold")
+    fig, ax = plt.subplots(figsize=(8, 6))
 
-    for ax, target_label, title in [
-        (axes[0], "label_pasal", "Label Pasal (362 vs 363)"),
-        (axes[1], "label_vonis", "Label Vonis (Berat / Sedang / Ringan)"),
-    ]:
-        df_r = df_ret[df_ret["label"] == target_label].copy()
-        df_p = df_pred_metrics[df_pred_metrics["label"] == target_label].copy()
+    target_label = "label_pasal"
+    title = "Label Pasal (362 vs 363)"
+    
+    df_r = df_ret[df_ret["label"] == target_label].copy()
+    df_p = df_pred_metrics[df_pred_metrics["label"] == target_label].copy()
 
-        df_r["source"] = "Retrieval"
-        df_p["source"] = "Prediction"
+    df_r["source"] = "Retrieval"
+    df_p["source"] = "Prediction"
 
-        df_all = pd.concat([
-            df_r[["model", "accuracy", "f1_score", "source"]],
-            df_p[["model", "accuracy", "f1_score", "source"]],
-        ], ignore_index=True)
+    df_all = pd.concat([
+        df_r[["model", "accuracy", "f1_score", "source"]],
+        df_p[["model", "accuracy", "f1_score", "source"]],
+    ], ignore_index=True)
 
-        models  = df_all["model"].tolist()
-        acc     = df_all["accuracy"].tolist()
-        f1      = df_all["f1_score"].tolist()
-        x       = np.arange(len(models))
-        width   = 0.35
+    models  = df_all["model"].tolist()
+    acc     = df_all["accuracy"].tolist()
+    f1      = df_all["f1_score"].tolist()
+    x       = np.arange(len(models))
+    width   = 0.35
 
-        bars1 = ax.bar(x - width/2, acc, width, label="Accuracy", color="#4C72B0", alpha=0.85)
-        bars2 = ax.bar(x + width/2, f1,  width, label="F1-Score",  color="#DD8452", alpha=0.85)
+    bars1 = ax.bar(x - width/2, acc, width, label="Accuracy", color="#4C72B0", alpha=0.85)
+    bars2 = ax.bar(x + width/2, f1,  width, label="F1-Score",  color="#DD8452", alpha=0.85)
 
-        ax.set_title(title, fontsize=12)
-        ax.set_ylabel("Score")
-        ax.set_ylim(0, 1.15)
-        ax.set_xticks(x)
-        ax.set_xticklabels(models, rotation=35, ha="right", fontsize=8)
-        ax.legend(fontsize=9)
-        ax.grid(axis="y", linestyle="--", alpha=0.5)
+    ax.set_title(title, fontsize=12)
+    ax.set_ylabel("Score")
+    ax.set_ylim(0, 1.15)
+    ax.set_xticks(x)
+    ax.set_xticklabels(models, rotation=35, ha="right", fontsize=8)
+    ax.legend(fontsize=9)
+    ax.grid(axis="y", linestyle="--", alpha=0.5)
 
-        for bar in bars1:
-            h = bar.get_height()
-            ax.annotate(f"{h:.2f}", xy=(bar.get_x() + bar.get_width()/2, h),
-                        xytext=(0, 3), textcoords="offset points", ha="center", fontsize=7)
-        for bar in bars2:
-            h = bar.get_height()
-            ax.annotate(f"{h:.2f}", xy=(bar.get_x() + bar.get_width()/2, h),
-                        xytext=(0, 3), textcoords="offset points", ha="center", fontsize=7)
+    for bar in bars1:
+        h = bar.get_height()
+        ax.annotate(f"{h:.2f}", xy=(bar.get_x() + bar.get_width()/2, h),
+                    xytext=(0, 3), textcoords="offset points", ha="center", fontsize=7)
+    for bar in bars2:
+        h = bar.get_height()
+        ax.annotate(f"{h:.2f}", xy=(bar.get_x() + bar.get_width()/2, h),
+                    xytext=(0, 3), textcoords="offset points", ha="center", fontsize=7)
 
     plt.tight_layout()
     chart_path = EVAL_DIR / "evaluation_chart.png"

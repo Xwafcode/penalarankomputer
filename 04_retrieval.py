@@ -98,28 +98,56 @@ def mean_pooling(model_output, attention_mask):
     return summed / clamped
 
 
-def get_indobert_embeddings(texts, tokenizer, model, max_length=512, batch_size=4):
+def get_indobert_embeddings(texts, tokenizer, model, batch_size=4):
     import torch
     device = get_device()
     model = model.to(device)
     model.eval()
+    
     all_emb = []
     for i in range(0, len(texts), batch_size):
         batch = texts[i : i + batch_size]
-        encoded = tokenizer(
-            batch,
-            padding=True,
-            truncation=True,
-            max_length=max_length,
-            return_tensors="pt",
-        )
-        encoded = {k: v.to(device) for k, v in encoded.items()}
-        with torch.no_grad():
-            outputs = model(**encoded)
-        pooled = mean_pooling(outputs, encoded["attention_mask"])
-        all_emb.append(pooled.cpu().numpy())
+        batch_embs = []
+        
+        for text in batch:
+            # Tokenize without truncation to get all tokens
+            tokens = tokenizer(text, add_special_tokens=False, return_tensors="pt")["input_ids"][0]
+            
+            chunk_size = 510  # 512 - 2 (for CLS and SEP)
+            chunks = [tokens[j:j+chunk_size] for j in range(0, len(tokens), chunk_size)]
+            
+            chunk_embs = []
+            for chunk in chunks:
+                # Add [CLS] (2) and [SEP] (3) for IndoBERT
+                input_ids = torch.cat([
+                    torch.tensor([tokenizer.cls_token_id]), 
+                    chunk, 
+                    torch.tensor([tokenizer.sep_token_id])
+                ]).unsqueeze(0).to(device)
+                
+                attention_mask = torch.ones_like(input_ids).to(device)
+                
+                with torch.no_grad():
+                    outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+                
+                # Mean pooling for this chunk
+                pooled = mean_pooling(outputs, attention_mask)
+                chunk_embs.append(pooled)
+            
+            # Average embeddings of all chunks for this document
+            if chunk_embs:
+                doc_emb = torch.stack(chunk_embs).mean(dim=0)
+            else:
+                # Fallback for empty text
+                doc_emb = torch.zeros((1, model.config.hidden_size)).to(device)
+                
+            batch_embs.append(doc_emb.cpu().numpy())
+            
+        all_emb.append(np.vstack(batch_embs))
+        
         if (i // batch_size) % 5 == 0:
             log.info(f"  Embedding batch {i // batch_size + 1}/{(len(texts) + batch_size - 1) // batch_size}")
+            
     return np.vstack(all_emb)
 
 
@@ -300,34 +328,6 @@ def main():
     m = evaluate_model(test_labels_pasal, tfidf_ret_pred, "TF-IDF + Cosine (k=5)", "label_pasal")
     all_metrics.append(m)
 
-    # ── SVM & NB (label_vonis) ──
-    if has_vonis_data:
-        log.info("\n--- SVM Classification (label_vonis) ---")
-        X_train_v = vectorizer.transform(train_vonis_texts)
-        X_test_v = vectorizer.transform(test_vonis_texts)
-
-        svm_vonis = LinearSVC(max_iter=10000, random_state=42, C=1.0)
-        svm_vonis.fit(X_train_v, train_labels_vonis)
-        svm_v_pred = svm_vonis.predict(X_test_v)
-        m = evaluate_model(test_labels_vonis, svm_v_pred, "TF-IDF + SVM", "label_vonis")
-        all_metrics.append(m)
-        with open(MODEL_DIR / "svm_vonis.pkl", "wb") as f:
-            pickle.dump(svm_vonis, f)
-
-        log.info("\n--- Naive Bayes Classification (label_vonis) ---")
-        nb_vonis = MultinomialNB(alpha=1.0)
-        nb_vonis.fit(X_train_v, train_labels_vonis)
-        nb_v_pred = nb_vonis.predict(X_test_v)
-        m = evaluate_model(test_labels_vonis, nb_v_pred, "TF-IDF + NB", "label_vonis")
-        all_metrics.append(m)
-        with open(MODEL_DIR / "nb_vonis.pkl", "wb") as f:
-            pickle.dump(nb_vonis, f)
-
-        log.info("\n--- TF-IDF Cosine Retrieval (label_vonis, k=5) ---")
-        tfidf_v_pred, _ = retrieval_predict(X_test_v, X_train_v, train_labels_vonis, k=5)
-        m = evaluate_model(test_labels_vonis, tfidf_v_pred, "TF-IDF + Cosine (k=5)", "label_vonis")
-        all_metrics.append(m)
-
     # ═══════════════════════════════════════════════════════════
     #  PENDEKATAN 2: IndoBERT Embedding
     # ═══════════════════════════════════════════════════════════
@@ -377,11 +377,7 @@ def main():
     # ── IndoBERT (label_vonis) ──
     if has_vonis_data:
         log.info("\n--- IndoBERT Cosine Retrieval (label_vonis, k=5) ---")
-        train_v_emb = get_indobert_embeddings(train_vonis_texts, tokenizer, model)
-        test_v_emb = get_indobert_embeddings(test_vonis_texts, tokenizer, model)
-        bert_v_pred, _ = retrieval_predict(test_v_emb, train_v_emb, train_labels_vonis, k=5)
-        m = evaluate_model(test_labels_vonis, bert_v_pred, "IndoBERT + Cosine (k=5)", "label_vonis")
-        all_metrics.append(m)
+        pass
 
     # ═══════════════════════════════════════════════════════════
     #  GENERATE queries.json

@@ -138,16 +138,33 @@ def clean_text(text):
 
 def get_embedding(text, tokenizer, model, device):
     import torch
-    inputs = tokenizer(
-        text, return_tensors="pt", truncation=True,
-        max_length=512, padding=True
-    )
-    inputs = {k: v.to(device) for k, v in inputs.items()}
-    with torch.no_grad():
-        outputs = model(**inputs)
-    mask = inputs["attention_mask"].unsqueeze(-1).float()
-    emb = (outputs.last_hidden_state * mask).sum(1) / mask.sum(1)
-    return emb.cpu().numpy()[0]
+    # Tokenize completely without truncation
+    tokens = tokenizer(text, add_special_tokens=False, return_tensors="pt")["input_ids"][0]
+    
+    chunk_size = 510  # Max length 512 minus 2 (for CLS and SEP)
+    chunks = [tokens[j:j+chunk_size] for j in range(0, len(tokens), chunk_size)]
+    
+    chunk_embs = []
+    for chunk in chunks:
+        input_ids = torch.cat([
+            torch.tensor([tokenizer.cls_token_id]), 
+            chunk, 
+            torch.tensor([tokenizer.sep_token_id])
+        ]).unsqueeze(0).to(device)
+        
+        attention_mask = torch.ones_like(input_ids).to(device)
+        
+        with torch.no_grad():
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+            
+        mask = attention_mask.unsqueeze(-1).float()
+        emb = (outputs.last_hidden_state * mask).sum(1) / mask.sum(1)
+        chunk_embs.append(emb)
+        
+    if chunk_embs:
+        return torch.stack(chunk_embs).mean(dim=0).cpu().numpy()[0]
+    else:
+        return np.zeros(model.config.hidden_size)
 
 
 def retrieve_tfidf(query, vectorizer, all_vectors, cases, k=5):
@@ -176,16 +193,39 @@ def weighted_vote(results, key):
     for c, sim in results:
         val = c.get(key, "")
         if val:
-            scores[val] = scores.get(val, 0.0) + sim
+            scores[val] = scores.get(val, 0.0) + (sim ** 5)
     if not scores:
         return "tidak_diketahui"
     return max(scores, key=scores.get)
 
 
+def predict_vonis_bulan(results, voting_method):
+    if not results:
+        return "?"
+    if voting_method == "Majority Vote":
+        # Average of all k results
+        total_months = sum(c.get("vonis_bulan", 0) for c, _ in results)
+        return f"{int(round(total_months / len(results)))} bulan"
+    else:
+        # Weighted average using sim^5
+        total_weight = sum((sim ** 5) for _, sim in results)
+        if total_weight == 0:
+            return "?"
+        weighted_months = sum(c.get("vonis_bulan", 0) * (sim ** 5) for c, sim in results)
+        return f"{int(round(weighted_months / total_weight))} bulan"
+
+
 def render_case_card(case, sim, rank):
     pasal_color = "#4CAF50" if case["label_pasal"] == "pasal_362" else "#2196F3"
-    vonis_map = {"ringan": "#8BC34A", "sedang": "#FF9800", "berat": "#F44336", "tidak_diketahui": "#9E9E9E"}
-    vonis_color = vonis_map.get(case.get("label_vonis", ""), "#9E9E9E")
+    vonis_bulan = case.get('vonis_bulan', 0)
+    # Gradien warna untuk bulan (semakin lama semakin merah)
+    if vonis_bulan < 12:
+        vonis_color = "#8BC34A"
+    elif vonis_bulan <= 36:
+        vonis_color = "#FF9800"
+    else:
+        vonis_color = "#F44336"
+        
     bar_width = max(int(sim * 100), 5)
 
     st.markdown(f"""
@@ -198,7 +238,7 @@ def render_case_card(case, sim, rank):
                     {case['label_pasal']}
                 </span>
                 <span style="background:{vonis_color};color:white;padding:2px 8px;border-radius:12px;font-size:0.75rem;margin-left:4px;">
-                    vonis: {case.get('label_vonis','?')}
+                    vonis: {vonis_bulan} bln
                 </span>
             </div>
             <div style="font-weight:600;font-size:1.1rem;color:#333;">
@@ -212,7 +252,6 @@ def render_case_card(case, sim, rank):
         </div>
         <div style="margin-top:8px;font-size:0.8rem;color:#666;">
             <strong>No Perkara:</strong> {case.get('no_perkara','-')} &nbsp;|&nbsp;
-            <strong>Vonis:</strong> {case.get('vonis_bulan','-')} bulan &nbsp;|&nbsp;
             <strong>Amar:</strong> {case.get('amar_putusan','-')}
         </div>
         <details style="margin-top:6px;">
@@ -288,13 +327,13 @@ def page_predict():
             col1, col2, col3, col4 = st.columns(4)
             if tfidf_results:
                 pred_pasal = vote_fn(tfidf_results, "label_pasal")
-                pred_vonis = vote_fn(tfidf_results, "label_vonis")
+                pred_vonis = predict_vonis_bulan(tfidf_results, voting)
                 col1.markdown(f"""<div class="metric-card"><h3>TF-IDF - Pasal</h3><h1>{pred_pasal}</h1></div>""", unsafe_allow_html=True)
                 col2.markdown(f"""<div class="metric-card" style="background:linear-gradient(135deg,#f093fb,#f5576c);"><h3>TF-IDF - Vonis</h3><h1>{pred_vonis}</h1></div>""", unsafe_allow_html=True)
 
             if bert_results:
                 pred_pasal_b = vote_fn(bert_results, "label_pasal")
-                pred_vonis_b = vote_fn(bert_results, "label_vonis")
+                pred_vonis_b = predict_vonis_bulan(bert_results, voting)
                 col3.markdown(f"""<div class="metric-card" style="background:linear-gradient(135deg,#4facfe,#00f2fe);"><h3>IndoBERT - Pasal</h3><h1>{pred_pasal_b}</h1></div>""", unsafe_allow_html=True)
                 col4.markdown(f"""<div class="metric-card" style="background:linear-gradient(135deg,#43e97b,#38f9d7);"><h3>IndoBERT - Vonis</h3><h1>{pred_vonis_b}</h1></div>""", unsafe_allow_html=True)
 
@@ -328,15 +367,14 @@ def page_predict():
         selected_id = st.selectbox("Pilih kasus:", case_ids, index=0)
         selected_case = next(c for c in cases if c["case_id"] == selected_id)
 
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         col1.metric("Pasal", selected_case["label_pasal"])
-        col2.metric("Vonis", selected_case.get("label_vonis", "?"))
-        col3.metric("Vonis (bulan)", selected_case.get("vonis_bulan", "?"))
+        col2.metric("Vonis (bulan)", f"{selected_case.get('vonis_bulan', '?')} bulan")
 
         with st.expander("Lihat teks putusan (500 karakter pertama)"):
             st.text(selected_case["text_full"][:500])
 
-        if st.button("Jalankan Retrieval", key="demo_btn", use_container_width=True):
+        if st.button("Jalankan Pencarian Serupa", type="primary"):
             cleaned = clean_text(selected_case["text_full"])
 
             with st.spinner("Menganalisis..."):
@@ -345,7 +383,7 @@ def page_predict():
                 bert_res = retrieve_bert(cleaned, tokenizer, model, device, all_embeddings, cases, k=5)
 
             st.success(f"Ground Truth: **{selected_case['label_pasal']}** | "
-                       f"Vonis: **{selected_case.get('label_vonis','?')}**")
+                       f"Vonis: **{selected_case.get('vonis_bulan','?')} bulan**")
 
             c1, c2 = st.columns(2)
             with c1:
@@ -379,9 +417,7 @@ def page_predict():
         | Aspek | Temuan |
         |---|---|
         | **Model terbaik (Pasal)** | TF-IDF + SVM (F1=0.9161) |
-        | **Model terbaik (Vonis)** | IndoBERT + Cosine (F1=0.7083) |
-        | **Kelemahan utama** | Imbalance kelas vonis (sedang=33, ringan=8, berat=1) |
-        | **Rekomendasi** | Augmentasi data vonis, perbaiki regex ekstraksi amar putusan |
+        | **Rekomendasi** | Gunakan TF-IDF untuk teks ringkasan, perbaiki ekstraksi data untuk model IndoBERT |
         """)
 
 

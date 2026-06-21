@@ -9,10 +9,11 @@ venv/
 env.bak/
 venv.bak/
 
-# Logs
 logs/*.log
 
-# IDEs
 .vscode/
 .idea/
 *.swp
+
+*.ipynb_checkpoints/
+.ipynb_checkpoints/

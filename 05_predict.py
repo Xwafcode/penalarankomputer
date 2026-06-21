@@ -83,10 +83,23 @@ def weighted_vote(top_k_with_sim, case_map, key):
     for cid, sim in top_k_with_sim:
         val = case_map[cid].get(key, "")
         if val:
-            scores[val] = scores.get(val, 0.0) + sim
+            scores[val] = scores.get(val, 0.0) + (sim ** 5)
     if not scores:
         return "tidak_diketahui"
     return max(scores, key=scores.get)
+
+def predict_vonis_bulan(top_k_with_sim, case_map, method="weighted"):
+    if not top_k_with_sim:
+        return 0
+    if method == "majority":
+        total_months = sum(case_map[cid].get("vonis_bulan", 0) for cid, _ in top_k_with_sim)
+        return int(round(total_months / len(top_k_with_sim)))
+    else:
+        total_weight = sum((sim ** 5) for _, sim in top_k_with_sim)
+        if total_weight == 0:
+            return 0
+        weighted_months = sum(case_map[cid].get("vonis_bulan", 0) * (sim ** 5) for cid, sim in top_k_with_sim)
+        return int(round(weighted_months / total_weight))
 
 def predict_outcome(query_text, vectorizer, all_vectors, all_embeddings,
                     cases, case_map, tokenizer=None, model=None, device=None, k=5):
@@ -94,9 +107,9 @@ def predict_outcome(query_text, vectorizer, all_vectors, all_embeddings,
     tfidf_solutions = [extract_solution(case_map[cid]) for cid, _ in tfidf_top_k]
 
     tfidf_mv_pasal  = majority_vote(tfidf_solutions, "label_pasal")
-    tfidf_mv_vonis  = majority_vote(tfidf_solutions, "label_vonis")
+    tfidf_mv_vonis  = predict_vonis_bulan(tfidf_top_k, case_map, "majority")
     tfidf_wv_pasal  = weighted_vote(tfidf_top_k, case_map, "label_pasal")
-    tfidf_wv_vonis  = weighted_vote(tfidf_top_k, case_map, "label_vonis")
+    tfidf_wv_vonis  = predict_vonis_bulan(tfidf_top_k, case_map, "weighted")
 
     bert_mv_pasal = bert_mv_vonis = bert_wv_pasal = bert_wv_vonis = None
     bert_top_k = []
@@ -105,9 +118,9 @@ def predict_outcome(query_text, vectorizer, all_vectors, all_embeddings,
         bert_top_k = retrieve_bert(query_emb, all_embeddings, cases, k)
         bert_solutions = [extract_solution(case_map[cid]) for cid, _ in bert_top_k]
         bert_mv_pasal  = majority_vote(bert_solutions, "label_pasal")
-        bert_mv_vonis  = majority_vote(bert_solutions, "label_vonis")
+        bert_mv_vonis  = predict_vonis_bulan(bert_top_k, case_map, "majority")
         bert_wv_pasal  = weighted_vote(bert_top_k, case_map, "label_pasal")
-        bert_wv_vonis  = weighted_vote(bert_top_k, case_map, "label_vonis")
+        bert_wv_vonis  = predict_vonis_bulan(bert_top_k, case_map, "weighted")
 
     return {
         "tfidf_top5":        [{"case_id": c, "sim": round(float(s), 4)} for c, s in tfidf_top_k],

@@ -1,9 +1,5 @@
 model,label,accuracy,precision,recall,f1_score,n_samples
 TF-IDF + MajorityVote,label_pasal,0.9,0.9167,0.9,0.899,10
-TF-IDF + MajorityVote,label_vonis,0.5714,0.381,0.5714,0.4571,7
 TF-IDF + WeightedVote,label_pasal,0.9,0.9167,0.9,0.899,10
-TF-IDF + WeightedVote,label_vonis,0.5714,0.381,0.5714,0.4571,7
 IndoBERT + MajorityVote,label_pasal,0.6,0.619,0.6,0.5833,10
-IndoBERT + MajorityVote,label_vonis,0.1429,0.2857,0.1429,0.1905,7
 IndoBERT + WeightedVote,label_pasal,0.6,0.619,0.6,0.5833,10
-IndoBERT + WeightedVote,label_vonis,0.0,0.0,0.0,0.0,7

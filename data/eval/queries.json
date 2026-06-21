@@ -100,24 +100,24 @@
         "similarity": 1.0
       },
       {
-        "case_id": "case_pasal_363_020",
+        "case_id": "case_pasal_363_013",
         "label": "pasal_363",
-        "similarity": 0.9233
+        "similarity": 0.8884
+      },
+      {
+        "case_id": "case_pasal_363_014",
+        "label": "pasal_363",
+        "similarity": 0.8884
+      },
+      {
+        "case_id": "case_pasal_362_016",
+        "label": "pasal_362",
+        "similarity": 0.8809
       },
       {
         "case_id": "case_pasal_362_006",
         "label": "pasal_362",
-        "similarity": 0.9126
-      },
-      {
-        "case_id": "case_pasal_362_030",
-        "label": "pasal_362",
-        "similarity": 0.8809
-      },
-      {
-        "case_id": "case_pasal_362_013",
-        "label": "pasal_362",
-        "similarity": 0.8809
+        "similarity": 0.8753
       }
     ]
   },
@@ -283,24 +283,24 @@
         "similarity": 1.0
       },
       {
+        "case_id": "case_pasal_363_025",
+        "label": "pasal_363",
+        "similarity": 0.9133
+      },
+      {
         "case_id": "case_pasal_362_006",
         "label": "pasal_362",
-        "similarity": 0.942
+        "similarity": 0.8001
       },
       {
-        "case_id": "case_pasal_363_013",
-        "label": "pasal_363",
-        "similarity": 0.9288
-      },
-      {
-        "case_id": "case_pasal_363_014",
-        "label": "pasal_363",
-        "similarity": 0.9288
+        "case_id": "case_pasal_362_028",
+        "label": "pasal_362",
+        "similarity": 0.7976
       },
       {
         "case_id": "case_pasal_363_017",
         "label": "pasal_363",
-        "similarity": 0.9268
+        "similarity": 0.7972
       }
     ]
   },
