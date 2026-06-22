@@ -126,14 +126,184 @@ def load_indobert():
     return tokenizer, model, device
 
 
+INDO_COMMON_WORDS = {
+    "ada", "adalah", "adanya", "agar", "akan", "akibat", "akhir",
+    "alasan", "amar", "anak", "antara", "apa", "apabila",
+    "atas", "atau", "ayat",
+    "bagi", "bagian", "bahwa", "baik", "barang", "baru",
+    "batu", "beberapa", "belum", "benar", "berapa",
+    "berdasarkan", "berdiri", "berikut", "berkas", "bermaksud",
+    "bersalah", "bersama", "berupa", "besar", "biasa", "biaya",
+    "bila", "bisa", "boleh", "buah", "bukan", "bulan",
+    "cara", "cukup",
+    "dahulu", "dalam", "dan", "dapat", "dari", "datang",
+    "dengan", "demi", "demikian", "demikianlah",
+    "denda", "depan", "desa", "dimana", "dimaksud",
+    "diatur", "diancam", "didakwa", "didakwakan", "dijatuhkan",
+    "dinyatakan", "diperoleh", "dipersidangan",
+    "duduk", "dusun",
+    "empat", "enam",
+    "fakta",
+    "hak", "hal", "halaman", "hanya", "hari", "hakim",
+    "harus", "haruslah", "hasil", "hendak", "hukum", "hukuman",
+    "ini", "islam", "itu",
+    "jadi", "jalan", "jaksa", "jam", "jenis",
+    "jika", "juga", "jumlah",
+    "kabupaten", "kalau", "kami", "karena", "karenanya",
+    "kasus", "kata", "keadilan", "kebangsaan",
+    "kecamatan", "kedua", "kelamin",
+    "kelurahan", "keluarga", "kemudian", "kepada",
+    "kepadanya", "kepentingan", "keperluan",
+    "kerja", "kerugian", "kesadaran",
+    "keterangan", "ketentuan", "ketiga", "ketika",
+    "ketua", "ketuhanan",
+    "kewajiban", "khususnya",
+    "korban", "kota", "kuasa", "kunci", "kurang",
+    "lagi", "lahir", "lain", "lalu", "lama",
+    "langsung", "lebih", "lengkap", "lima",
+    "maha", "maka", "maksud", "malang",
+    "mampu", "mana", "masa", "masing",
+    "masih", "masuk", "masyarakat", "maupun",
+    "majelis", "meja",
+    "melakukan", "melanggar", "melawan",
+    "melepaskan", "memang", "membebaskan",
+    "membawa", "membayar", "memberi", "memberikan",
+    "memenuhi", "memiliki",
+    "memohon", "mempertimbangkan", "memperhatikan",
+    "memutuskan",
+    "mendapat", "mendekati", "mendorong",
+    "mendengar", "menerangkan",
+    "mengadili", "mengajukan", "mengakui", "mengalami",
+    "mengambil", "mengenai", "mengetahui",
+    "menggunakan", "mengingat", "menguasai",
+    "menimbang", "menikmati", "menjadi",
+    "menjatuhkan", "menuju",
+    "menurut", "menyatakan", "menyesal", "menyesali",
+    "meresahkan", "merupakan", "meskipun",
+    "milik", "miliki", "motor", "mulai",
+    "nama", "namun", "negeri", "nomor",
+    "orang", "oleh",
+    "pada", "paling", "panitera", "para", "parkir",
+    "pasal", "pekerjaan",
+    "pelaku", "pemaaf", "pembenar",
+    "pembacaan", "pemeriksaan",
+    "pencurian", "pendapat", "penetapan",
+    "pengganti", "pengetahuan",
+    "penjara", "penjeraan",
+    "penuntut", "penunjukan",
+    "penyesuaian", "penyidik",
+    "peradilan", "peraturan",
+    "perbuatan", "perbuatannya",
+    "perkara", "perlu", "pernah", "persidangan",
+    "pertama", "pertimbangan", "perundang",
+    "pidana", "pihak", "pokoknya",
+    "pula", "pukul", "putusan",
+    "rasa", "rekaman", "republik", "resto",
+    "ringan", "rupiah",
+    "saat", "saja", "saksi", "salah",
+    "sama", "sampai", "sangat", "sarana",
+    "satu", "sebagai", "sebagaimana",
+    "sebagian", "sebelum", "sebelumnya",
+    "secara", "sedang", "sedangkan",
+    "sehingga", "sejak", "sejumlah", "sekira", "sekitar",
+    "selain", "selaku", "selama", "selanjutnya",
+    "seluruh", "seluruhnya",
+    "semua", "sendiri", "sependapat",
+    "sepeda", "sepengetahuan",
+    "seperti", "sepatutnya",
+    "serta", "sesuai", "sesuatu",
+    "setelah", "setiap", "setimpal",
+    "sifat", "sopan",
+    "suatu", "sudah", "sumpah", "supaya", "surat",
+    "tahun", "tanggal", "tanpa", "telah",
+    "tempat", "tentang", "tentunya",
+    "terbukti", "terhadap",
+    "terdakwa", "terlebih", "termasuk", "ternyata",
+    "tersebut", "terungkap",
+    "tetap", "tetapi",
+    "tidak", "tindak", "tinggal",
+    "tujuan", "tulang", "tuntutan",
+    "tujuh", "tiga", "tingkat",
+    "umum", "umur", "undang",
+    "unsur", "untuk", "utama",
+    "wajib", "waktu", "walaupun", "warna", "wib",
+}
+
+
+def _remove_page_boundaries(raw_text):
+    import re
+    lines = raw_text.split('\n')
+    content_lines = []
+    in_disclaimer = False
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.lower() == 'disclaimer':
+            in_disclaimer = True
+            continue
+        if in_disclaimer:
+            if 'ext.318)' in stripped.lower():
+                in_disclaimer = False
+            continue
+        if re.match(r'^halaman\s+\d+$', stripped, re.IGNORECASE):
+            continue
+        stripped = re.sub(
+            r'\s*putusan\s+nomor\s+\d+/pid\.\w+/\d{4}/pn\s+\w+\s*$',
+            '', stripped, flags=re.IGNORECASE
+        )
+        if stripped:
+            content_lines.append(stripped)
+
+    return ' '.join(content_lines)
+
+
+def _split_merged_words(text, word_set, min_token_len=6, min_part_len=3):
+    import re
+    tokens = text.split()
+    result = []
+    for token in tokens:
+        alpha_only = re.sub(r'[^a-z]', '', token)
+        if len(alpha_only) <= min_token_len or alpha_only in word_set:
+            result.append(token)
+            continue
+        best_split = None
+        best_score = -1
+        for i in range(min_part_len, len(alpha_only) - min_part_len + 1):
+            left = alpha_only[:i]
+            right = alpha_only[i:]
+            if left in word_set and right in word_set:
+                score = len(left) + len(right) + min(len(left), len(right))
+                if score > best_score:
+                    best_score = score
+                    best_split = (left, right)
+        if best_split:
+            result.append(best_split[0])
+            sub = _split_merged_words(best_split[1], word_set, min_token_len, min_part_len)
+            result.append(sub)
+        else:
+            result.append(token)
+    return ' '.join(result)
+
+
 def clean_text(text):
     import re
-    text = text.lower().strip()
-    # Hapus disclaimer MA
-    text = re.sub(r"disclaimer.*?ext\.318\)", "", text, flags=re.DOTALL)
-    text = re.sub(r"halaman \d+", "", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+    text = _remove_page_boundaries(text)
+    text = text.lower()
+
+    def fix_spaced_chars(m):
+        return m.group(0).replace(' ', '')
+    text = re.sub(r'(?<!\w)([a-z] ){3,}[a-z](?!\w)', fix_spaced_chars, text)
+
+    text = re.sub(r';', '; ', text)
+    text = re.sub(r'(?<=[a-z])\.(?=[a-z])', '. ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    text = _split_merged_words(text, INDO_COMMON_WORDS)
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    return text
 
 
 def get_embedding(text, tokenizer, model, device):
@@ -292,10 +462,34 @@ def page_predict():
     tab1, tab2, tab3 = st.tabs(["Prediksi Kasus Baru", "Contoh Pengujian", "Metrik Evaluasi"])
 
     with tab1:
+        st.subheader("Pilih Contoh Kasus (Opsional)")
+        contoh_options = ["-- Ketik/Upload Sendiri --"]
+        
+        import random
+        random.seed(42)
+        s_363 = random.sample([c for c in cases if c['label_pasal'] == 'pasal_363'], 2)
+        s_362 = random.sample([c for c in cases if c['label_pasal'] == 'pasal_362'], 2)
+        samples = s_363 + s_362
+        
+        sample_dict = {}
+        for i, s in enumerate(samples, 1):
+            label = f"Contoh {i}: {s['label_pasal']} (Vonis {s.get('vonis_bulan','?')} bln)"
+            contoh_options.append(label)
+            sample_dict[label] = s
+            
+        selected_contoh = st.selectbox("Gunakan kasus dari data latih sebagai contoh:", contoh_options)
+        
+        default_val = ""
+        if selected_contoh != "-- Ketik/Upload Sendiri --":
+            s_data = sample_dict[selected_contoh]
+            default_val = s_data["text_full"]
+            st.info(f"**Prediksi Seharusnya:** {s_data['label_pasal']} | **Vonis:** {s_data.get('vonis_bulan','?')} bulan")
+            
         st.subheader("Masukkan Teks Putusan")
         query_text = st.text_area(
             "Paste teks putusan pengadilan di sini:",
             height=250,
+            value=default_val,
             placeholder="Contoh: PUTUSAN Nomor xxx/Pid.B/2024/PN Mlg DEMI KEADILAN BERDASARKAN KETUHANAN YANG MAHA ESA ..."
         )
 

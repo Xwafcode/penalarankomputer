@@ -229,9 +229,6 @@ def download_pdf(pdf_url: str, save_path: Path) -> bool:
         return False
 
 
-# ─────────────────────────────────────────────
-#  MAIN PIPELINE
-# ─────────────────────────────────────────────
 def main():
     log.info("=" * 60)
     log.info("SCRAPER PUTUSAN PN MALANG — PENCURIAN")
